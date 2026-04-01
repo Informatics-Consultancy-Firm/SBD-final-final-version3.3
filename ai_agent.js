@@ -10,7 +10,7 @@
 
     // ── ONLY config needed in the browser ────────────────────
     // Replace with your deployed GAS Web App URL after publishing
-    const GAS_URL = 'https://script.google.com/macros/s/YOUR_DEPLOYMENT_ID/exec';
+    const GAS_URL = 'https://script.google.com/macros/s/AKfycbymRy-M5v0fVLWUjw4IXYhd1oIR2ZvnP_Dzr_iGR-Th0cMIpmE2ntGeujWYH7-C6NHIzA/exec';
 
     // ── inject styles ────────────────────────────────────────
     const style = document.createElement('style');
