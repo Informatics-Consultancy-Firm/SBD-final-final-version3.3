@@ -231,20 +231,11 @@
     }
 
     async function fetchSheetData(){
-        // ── Method 1: GAS ?action=getData ──────────────────────
-        // Add this to your Apps Script doGet(e):
-        //  if(e.parameter.action==='getData'){
-        //    const sh=SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
-        //    const vals=sh.getDataRange().getValues();
-        //    const hdr=vals[0];
-        //    const rows=vals.slice(1).map(r=>{const o={};hdr.forEach((h,i)=>o[h]=r[i]);return o;});
-        //    return ContentService.createTextOutput(JSON.stringify({success:true,rows:rows}))
-        //      .setMimeType(ContentService.MimeType.JSON);
-        //  }
+        // ── Method 1: GAS ?action=getData (15s timeout) ────────
         try{
             const res=await Promise.race([
                 fetch(GAS_URL+'?action=getData'),
-                new Promise((_,rej)=>setTimeout(()=>rej(new Error('timeout')),6000))
+                new Promise((_,rej)=>setTimeout(()=>rej(new Error('timeout')),15000))
             ]);
             if(res.ok){
                 const d=await res.json();
@@ -253,8 +244,7 @@
             }
         }catch(e){console.warn('[Analysis] GAS getData:',e.message);}
 
-        // ── Method 2: Direct Google Sheets CSV export ──────────
-        // Works when sheet is shared "Anyone with the link can view"
+        // ── Method 2: Direct Google Sheets CSV export ───────────
         try{
             const csvUrl=`https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv`;
             const rows=await new Promise((resolve,reject)=>{
@@ -267,7 +257,7 @@
             if(rows&&rows.length>0){console.log('[Analysis] Loaded',rows.length,'rows from CSV export');return rows;}
         }catch(e){console.warn('[Analysis] CSV export:',e.message);}
 
-        console.warn('[Analysis] Sheet fetch failed — using localStorage data only');
+        console.warn('[Analysis] Sheet fetch failed — local data only');
         return[];
     }
 
@@ -276,30 +266,41 @@
     }
 
     // Build targets from the already-loaded CSV cascading data.
-    // ALL_LOCATION_DATA structure: { district: { chiefdom: { phu: { community: [schools] } } } }
-    // Counts: district target = all schools in that district
-    //         chiefdom target = all schools in that chiefdom
-    //         phu target      = all schools under that phu
+    // Key = district|chiefdom|phu|community|school_name (same school name in different community = different school)
     function buildTargetsFromCSV() {
+        // Key = district|chiefdom|phu|community|school — all 5 parts
         const data = window.ALL_LOCATION_DATA || {};
         const targets = {};
 
         for (const district in data) {
-            const dKey = district.trim().toLowerCase();
+            const dk = district.trim().toLowerCase();
+            const dSet = new Set();
+
             for (const chiefdom in data[district]) {
-                const cKey = dKey + '|' + chiefdom.trim().toLowerCase();
+                const ck = chiefdom.trim().toLowerCase();
+                const cSet = new Set();
+
                 for (const phu in data[district][chiefdom]) {
-                    const pKey = cKey + '|' + phu.trim().toLowerCase();
+                    const pk = phu.trim().toLowerCase();
+                    const pSet = new Set();
+
                     for (const community in data[district][chiefdom][phu]) {
+                        const comk = community.trim().toLowerCase();
                         const schools = data[district][chiefdom][phu][community];
-                        const n = Array.isArray(schools) ? schools.length : 0;
-                        if (n === 0) continue;
-                        targets[dKey]  = (targets[dKey]  || 0) + n;
-                        targets[cKey]  = (targets[cKey]  || 0) + n;
-                        targets[pKey]  = (targets[pKey]  || 0) + n;
+                        if (!Array.isArray(schools)) continue;
+                        schools.forEach(s => {
+                            if (!s) return;
+                            const fullKey = dk+'|'+ck+'|'+pk+'|'+comk+'|'+s.trim().toLowerCase();
+                            pSet.add(fullKey);
+                            cSet.add(fullKey);
+                            dSet.add(fullKey);
+                        });
                     }
+                    if (pSet.size > 0) targets[dk+'|'+ck+'|'+pk] = pSet.size;
                 }
+                if (cSet.size > 0) targets[dk+'|'+ck] = cSet.size;
             }
+            if (dSet.size > 0) targets[dk] = dSet.size;
         }
         return targets;
     }
@@ -440,7 +441,11 @@
         if(sub)sub.textContent=`${total} school${total!==1?'s':''} submitted · Last refreshed ${new Date().toLocaleTimeString('en-SL',{hour:'2-digit',minute:'2-digit'})}`;
 
         if(!total){
-            body.innerHTML=`<div class="an-no-data"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.5"><path d="M3 3h18v18H3zM3 9h18M9 21V9"/></svg><div>No data matches the selected filters.</div></div>`;
+            body.innerHTML=`<div class="an-no-data">
+              <svg viewBox="0 0 24 24" fill="none" stroke-width="1.5"><path d="M3 3h18v18H3zM3 9h18M9 21V9"/></svg>
+              <div style="margin-bottom:12px;">No submissions found. ${_sheetRows.length===0?'Could not load data from Google Sheets — try refreshing.':'No data matches the selected filters.'}</div>
+              ${_sheetRows.length===0?`<button onclick="anRefresh()" style="background:#004080;color:#fff;border:none;border-radius:8px;padding:9px 20px;font-family:'Oswald',sans-serif;font-size:12px;font-weight:600;letter-spacing:.5px;cursor:pointer;">↻ RETRY FETCH</button>`:''}
+            </div>`;
             return;
         }
 
@@ -665,32 +670,54 @@
     //  TARGETS TAB — District → Chiefdom → Schools breakdown
     // ════════════════════════════════════════════════════════
     function buildTargetsTree() {
-        // Returns tree: { district: { chiefdoms: { chiefdom: { schools: [name,...] } } } }
+        // Returns tree: { district: { chiefdoms: { chiefdom: { schools: [{phu,community,name},...] } } } }
+        // Key = district|chiefdom|phu|community|school — full 5-part unique key
         const data = window.ALL_LOCATION_DATA || {};
         const tree = {};
 
         for (const district in data) {
             if (!tree[district]) tree[district] = { chiefdoms: {} };
+            const dk = district.trim().toLowerCase();
             for (const chiefdom in data[district]) {
                 if (!tree[district].chiefdoms[chiefdom])
-                    tree[district].chiefdoms[chiefdom] = { schools: new Set() };
+                    tree[district].chiefdoms[chiefdom] = { schoolSet: new Set(), schools: [] };
+                const ck = chiefdom.trim().toLowerCase();
                 for (const phu in data[district][chiefdom]) {
+                    const pk = phu.trim().toLowerCase();
                     for (const community in data[district][chiefdom][phu]) {
-                        const schools = data[district][chiefdom][phu][community];
-                        if (Array.isArray(schools))
-                            schools.forEach(s => tree[district].chiefdoms[chiefdom].schools.add(s));
+                        const comk = community.trim().toLowerCase();
+                        const schoolList = data[district][chiefdom][phu][community];
+                        if (!Array.isArray(schoolList)) continue;
+                        schoolList.forEach(s => {
+                            if (!s) return;
+                            const fullKey = dk+'|'+ck+'|'+pk+'|'+comk+'|'+s.trim().toLowerCase();
+                            const entry = tree[district].chiefdoms[chiefdom];
+                            if (!entry.schoolSet.has(fullKey)) {
+                                entry.schoolSet.add(fullKey);
+                                entry.schools.push({ district, chiefdom, phu, community, name: s, key: fullKey });
+                            }
+                        });
                     }
                 }
-                tree[district].chiefdoms[chiefdom].schools =
-                    [...tree[district].chiefdoms[chiefdom].schools].sort();
+                tree[district].chiefdoms[chiefdom].schools.sort((a, b) => a.name.localeCompare(b.name));
             }
         }
         return tree;
     }
 
     function getSubmittedSet() {
-        // Returns Set of lowercase school names from Google Sheets only — no local/session data
-        return new Set((_sheetRows || []).map(r => (r.school_name || '').trim().toLowerCase()).filter(Boolean));
+        // Returns Set of lowercase district|chiefdom|phu|community|school keys from Google Sheets only
+        return new Set(
+            (_sheetRows || [])
+                .filter(r => r.school_name)
+                .map(r =>
+                    (r.district    ||'').trim().toLowerCase()+'|'+
+                    (r.chiefdom    ||'').trim().toLowerCase()+'|'+
+                    (r.facility    ||'').trim().toLowerCase()+'|'+
+                    (r.community   ||'').trim().toLowerCase()+'|'+
+                    (r.school_name ||'').trim().toLowerCase()
+                )
+        );
     }
 
     function renderTargetsTab() {
@@ -723,13 +750,44 @@
         districts.forEach(d => {
             Object.values(tree[d].chiefdoms).forEach(c => {
                 natSchools += c.schools.length;
-                natDone    += c.schools.filter(s => submitted.has(s.toLowerCase())).length;
+                natDone    += c.schools.filter(s => submitted.has(s.key)).length;
             });
         });
         const natPct = natSchools > 0 ? Math.round((natDone / natSchools) * 100) : 0;
 
+        // Duplicate rows banner
+        const dups = window.CSV_DUPLICATES || [];
+        const dupBanner = dups.length > 0 ? `
+            <div style="background:#fff0f0;border:2px solid #dc3545;border-radius:10px;margin-bottom:14px;overflow:hidden;">
+              <div style="background:#dc3545;color:#fff;padding:9px 14px;display:flex;align-items:center;gap:8px;font-family:'Oswald',sans-serif;font-size:12px;font-weight:600;letter-spacing:.5px;">
+                <svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" width="14" height="14"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                ${dups.length} DUPLICATE ROW${dups.length>1?'S':''} IN CSV — SKIPPED FROM COUNT
+              </div>
+              <div style="padding:10px 14px;overflow-x:auto;">
+                <table style="width:100%;border-collapse:collapse;font-size:11px;">
+                  <thead><tr style="background:#fde8e8;">
+                    <th style="padding:6px 10px;text-align:left;font-family:'Oswald',sans-serif;color:#c0392b;font-weight:600;white-space:nowrap;">CSV ROW</th>
+                    <th style="padding:6px 10px;text-align:left;font-family:'Oswald',sans-serif;color:#c0392b;font-weight:600;">DISTRICT</th>
+                    <th style="padding:6px 10px;text-align:left;font-family:'Oswald',sans-serif;color:#c0392b;font-weight:600;">CHIEFDOM</th>
+                    <th style="padding:6px 10px;text-align:left;font-family:'Oswald',sans-serif;color:#c0392b;font-weight:600;">PHU</th>
+                    <th style="padding:6px 10px;text-align:left;font-family:'Oswald',sans-serif;color:#c0392b;font-weight:600;">COMMUNITY</th>
+                    <th style="padding:6px 10px;text-align:left;font-family:'Oswald',sans-serif;color:#c0392b;font-weight:600;">SCHOOL</th>
+                  </tr></thead>
+                  <tbody>${dups.map((r,i)=>`<tr style="background:${i%2?'#fff':'#fff5f5'};">
+                    <td style="padding:5px 10px;color:#8090a0;">${r.row}</td>
+                    <td style="padding:5px 10px;">${r.district}</td>
+                    <td style="padding:5px 10px;">${r.chiefdom}</td>
+                    <td style="padding:5px 10px;">${r.phu}</td>
+                    <td style="padding:5px 10px;">${r.community}</td>
+                    <td style="padding:5px 10px;font-weight:600;color:#c0392b;">${r.school}</td>
+                  </tr>`).join('')}</tbody>
+                </table>
+              </div>
+              <div style="padding:8px 14px;font-size:10px;color:#607080;border-top:1px solid #fde8e8;">Fix these duplicates in cascading_data1.csv to ensure accurate target counts.</div>
+            </div>` : '';
+
         // ── Build HTML ───────────────────────────────────────────
-        let html = sheetBanner + `
+        let html = sheetBanner + dupBanner + `
         <style>
         .tg-kpi-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px;margin-bottom:18px;}
         .tg-kpi{background:#fff;border-radius:10px;padding:14px 10px;text-align:center;box-shadow:0 2px 8px rgba(0,64,128,.07);border-top:4px solid #004080;}
@@ -798,7 +856,7 @@
             chiefdoms.forEach(c => {
                 const schs = tree[district].chiefdoms[c].schools;
                 dTotal += schs.length;
-                dDone  += schs.filter(s => submitted.has(s.toLowerCase())).length;
+                dDone  += schs.filter(s => submitted.has(s.key)).length;
             });
             const dPct  = dTotal > 0 ? Math.round((dDone / dTotal) * 100) : 0;
             const dCol  = dPct >= 80 ? '#28a745' : dPct >= 50 ? '#f0a500' : '#dc3545';
@@ -840,15 +898,16 @@
             chiefdoms.forEach((chiefdom, ci) => {
                 const schs   = tree[district].chiefdoms[chiefdom].schools;
                 const cTotal = schs.length;
-                const cDone  = schs.filter(s => submitted.has(s.toLowerCase())).length;
+                const cDone  = schs.filter(s => submitted.has(s.key)).length;
                 const cPct   = cTotal > 0 ? Math.round((cDone / cTotal) * 100) : 0;
                 const cCol   = cPct >= 80 ? '#28a745' : cPct >= 50 ? '#f0a500' : '#dc3545';
                 const chipsId = `chips-${di}-${ci}`;
 
                 // Show first 5 schools as chips, expandable
                 const chips = schs.map(s => {
-                    const done = submitted.has(s.toLowerCase());
-                    return `<span class="tg-chip ${done?'done':'pend'}" title="${s}">${done?'✓ ':''}${s.length>22?s.substring(0,20)+'…':s}</span>`;
+                    const done  = submitted.has(s.key);
+                    const label = s.name.length > 22 ? s.name.substring(0,20)+'…' : s.name;
+                    return `<span class="tg-chip ${done?'done':'pend'}" title="${s.name} · ${s.community}">${done?'✓ ':''}${label}</span>`;
                 }).join('');
 
                 html += `
