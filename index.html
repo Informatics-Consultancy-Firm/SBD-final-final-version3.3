@@ -471,12 +471,10 @@
                         <span class="status-text" id="statusText">CHECKING...</span>
                     </div>
                     <div class="status-item">
-                        <span class="status-label">DRAFTS:</span>
-                        <span class="draft-count" id="draftCount">0</span>
-                    </div>
-                    <div class="status-item">
                         <span class="status-label">PENDING:</span>
                         <span class="pending-count" id="pendingCount">0</span>
+                    </div>
+                    <div class="status-item" style="margin-left:auto;">
                     </div>
                 </div>
 
@@ -828,7 +826,7 @@
 
                                     <div class="navigation-buttons">
                                         <button type="button" class="btn-nav btn-back" onclick="previousSection()"><svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg> BACK</button>
-                                        <button type="button" class="btn-nav btn-draft" onclick="showDraftNameModal()"><svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg> SAVE</button>
+                                        
                                         <button type="button" class="btn-nav btn-next" onclick="nextSection()">NEXT <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg></button>
                                     </div>
                                 </div>
@@ -932,7 +930,7 @@
 
                                     <div class="navigation-buttons">
                                         <button type="button" class="btn-nav btn-back" onclick="previousSection()"><svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg> BACK</button>
-                                        <button type="button" class="btn-nav btn-draft" onclick="showDraftNameModal()"><svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg> SAVE</button>
+                                        
                                         <button type="button" class="btn-nav btn-next" onclick="nextSection()">NEXT <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg></button>
                                     </div>
                                 </div>
@@ -985,7 +983,7 @@
 
                                     <div class="navigation-buttons">
                                         <button type="button" class="btn-nav btn-back" onclick="previousSection()"><svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg> BACK</button>
-                                        <button type="button" class="btn-nav btn-draft" onclick="showDraftNameModal()"><svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg> SAVE</button>
+                                        
                                         <button type="button" class="btn-nav btn-next" onclick="nextSection()">NEXT <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg></button>
                                     </div>
                                 </div>
@@ -1041,7 +1039,7 @@
 
                                     <div class="navigation-buttons">
                                         <button type="button" class="btn-nav btn-back" onclick="previousSection()"><svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg> BACK</button>
-                                        <button type="button" class="btn-nav btn-draft" onclick="showDraftNameModal()"><svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg> SAVE</button>
+                                        
                                         <button type="button" class="btn-nav btn-finalize" id="finalizeBtn" onclick="finalizeForm()"><svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg> FINALIZE</button>
                                         <button type="submit" class="btn-nav btn-submit" id="submitBtn" disabled><svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg> SUBMIT</button>
                                     </div>
@@ -1063,14 +1061,6 @@
         </div><!-- /main-content -->
 
         <!-- MODALS -->
-        <div class="modal-overlay" id="draftsModal">
-            <div class="modal-content"><div class="modal-header"><span class="modal-title"><svg class="modal-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg> SAVED DRAFTS</span><button class="modal-close" onclick="closeDraftsModal()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></div><div class="modal-body" id="draftsModalBody"></div></div>
-        </div>
-
-        <div class="modal-overlay" id="draftNameModal">
-            <div class="modal-content small"><div class="modal-header yellow"><span class="modal-title"><svg class="modal-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg> SAVE DRAFT</span></div>
-            <div class="modal-body"><label class="form-label">DRAFT NAME (AUTO-GENERATED):</label><input type="text" class="form-input draft-name-readonly" id="draftNameInput" readonly><div class="draft-name-hint">Name is auto-generated from location selections</div><div class="modal-buttons"><button class="modal-btn cancel" onclick="cancelDraftName()">CANCEL</button><button class="modal-btn save" onclick="confirmSaveDraft()">SAVE</button></div></div></div>
-        </div>
 
         <!-- FULL-SCREEN ANALYSIS MODAL -->
         <div class="modal-overlay" id="analysisModal" style="align-items:stretch;padding:0;">
