@@ -9,7 +9,7 @@ const PRECACHE_URLS = [
   './index.html',
   './script_option2.js',
   './ai_agent.js',
-  './cascading_data1.csv',
+  './cascading_data.csv',
   './manifest.json',
   './offline.html',
   './icons/icon-72.png',
