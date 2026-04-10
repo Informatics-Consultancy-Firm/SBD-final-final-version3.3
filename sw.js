@@ -1,7 +1,7 @@
 // ============================================================
 //  SBD 2026 — ITN Distribution Survey · Service Worker
 //  BUMP THIS VERSION STRING every time you upload new files:
-const CACHE_VERSION = 'sbd-2026-v8';
+const CACHE_VERSION = 'sbd-2026-v10';
 // ============================================================
 
 // ── YOUR MAIN APP FILES ───────────────────────────────────────
@@ -16,19 +16,20 @@ const APP_FILES = [
   // Add ALL csv files used by any HTML in your repo here
   './cascading_data.csv',        // main app — school locations
   './itn_movement_users.csv',     // itn_movement.html — users/staff
+  './users_phu.csv',              // itn_received.html — PHU users
 ];
 
 // ── MODULE HTML FILES + THEIR OWN ASSETS ────────────────────
 // Each module HTML is cached so it works offline.
 // If a module uses its own CSV/JS files, add them here too.
 const MODULE_FILES = [
+  './assessment.html',
   './itn_movement.html',
   './itn_received.html',
   './monitoring.html',
   './itn_reconciliation.html',
   './device_tracking.html',
-  './attendance_payment.html',
-  './distribution_report.html',
+
 ];
 
 // ── CDN LIBRARIES ─────────────────────────────────────────────
@@ -38,11 +39,14 @@ const CDN_FILES = [
   'https://cdn.jsdelivr.net/npm/signature_pad@4.1.7/dist/signature_pad.umd.min.js',
   'https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js',
   'https://cdn.jsdelivr.net/npm/html5-qrcode@2.3.8/html5-qrcode.min.js',
+  'https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js',
 ];
 
 // ── OPTIONAL (cached if they exist, silently skipped if not) ──
 const OPTIONAL_FILES = [
   './ICF-SL.jpg',
+  './attendance_payment.html',
+  './distribution_report.html',
   './infographics.png',
   './logo_mohs.png',
   './logo_nmcp.png',
@@ -62,6 +66,7 @@ const CACHE_EXTERNAL = [
   'fonts.googleapis.com',
   'fonts.gstatic.com',
   'cdn.jsdelivr.net',
+  'cdnjs.cloudflare.com',
 ];
 
 // ─────────────────────────────────────────────────────────────
@@ -128,11 +133,10 @@ self.addEventListener('fetch', event => {
     caches.match(event.request).then(cached => {
       if (cached) {
         // Serve from cache instantly + refresh in background
-        fetch(event.request)
+        fetch(event.request.clone())
           .then(r => {
             if (r && r.status === 200) {
-              const rc = r.clone();
-              caches.open(CACHE_VERSION).then(c => c.put(event.request, rc));
+              caches.open(CACHE_VERSION).then(c => c.put(event.request, r));
             }
           })
           .catch(() => {});
@@ -142,7 +146,8 @@ self.addEventListener('fetch', event => {
       return fetch(event.request)
         .then(r => {
           if (!r || r.status !== 200) return r;
-          caches.open(CACHE_VERSION).then(c => c.put(event.request, r.clone()));
+          const toCache = r.clone();
+          caches.open(CACHE_VERSION).then(c => c.put(event.request, toCache));
           return r;
         })
         .catch(() => {
