@@ -925,9 +925,9 @@
                                         </div>
                                     </div>
                                     <!-- Enrollment, EMIS, Status — inside manualEntryBlock, auto-filled from CSV on school select -->
-                                    <div class="form-group"><label class="form-label">SCHOOL ENROLLMENT <span class="required">*</span></label><input type="number" class="form-input" name="school_enrollment" id="school_enrollment" min="0" placeholder="e.g. 210" required><div class="field-error" id="error_school_enrollment">This field is required</div></div>
-                                    <div class="form-group"><label class="form-label">EMIS NUMBER</label><input type="text" class="form-input" name="emis_number" id="emis_number" placeholder="e.g. 12345"></div>
-                                    <div class="form-group"><label class="form-label">SCHOOL STATUS <span class="required">*</span></label><select class="form-input" name="school_status" id="school_status" required><option value="">Select...</option><option value="Old">Old</option><option value="New">New</option></select><div class="field-error" id="error_school_status">Please select school status</div></div>
+                                    <div class="form-group" id="enrollment-group" style="display:none;"><label class="form-label">SCHOOL ENROLLMENT</label><input type="text" class="form-input" name="school_enrollment" id="school_enrollment" readonly style="background:#f5f8ff;cursor:default;color:#004080;font-weight:600;"><input type="hidden" name="school_enrollment_val" id="school_enrollment_val"></div>
+                                    <div class="form-group" id="emis-group" style="display:none;"><label class="form-label">EMIS NUMBER</label><input type="text" class="form-input" name="emis_number" id="emis_number" readonly style="background:#f5f8ff;cursor:default;color:#004080;font-weight:600;"></div>
+                                    <div class="form-group" id="status-group" style="display:none;"><label class="form-label">SCHOOL STATUS</label><input type="text" class="form-input" name="school_status" id="school_status" readonly style="background:#f5f8ff;cursor:default;color:#004080;font-weight:600;"></div>
                                     </div><!-- /manualEntryBlock -->
 
                                     <!-- Head teacher + date — always visible once in Section B -->
@@ -1730,12 +1730,15 @@ window.processSchoolQR = function(raw) {
     _setSelectReadOnly('community',   community);
     _setSelectReadOnly('school_name', school);
 
-    const enrEl  = document.getElementById('school_enrollment');
-    const emisEl = document.getElementById('emis_number');
-    const stEl   = document.getElementById('school_status');
-    if (enrEl)  enrEl.value  = enrollment || '';
-    if (emisEl) emisEl.value = emis       || '';
-    if (stEl)   stEl.value   = status     || '';
+    const enrGrp2  = document.getElementById('enrollment-group');
+    const emisGrp2 = document.getElementById('emis-group');
+    const stGrp2   = document.getElementById('status-group');
+    const enrEl    = document.getElementById('school_enrollment');
+    const emisEl   = document.getElementById('emis_number');
+    const stEl     = document.getElementById('school_status');
+    if (enrollment && enrEl)  { enrEl.value  = enrollment; if(enrGrp2)  enrGrp2.style.display  = 'block'; }
+    if (emis       && emisEl) { emisEl.value = emis;       if(emisGrp2) emisGrp2.style.display = 'block'; }
+    if (status     && stEl)   { stEl.value   = status;     if(stGrp2)   stGrp2.style.display   = 'block'; }
 
     // Tag submission as new school if not in CSV
     const newSchoolEl = document.getElementById('is_new_school');
