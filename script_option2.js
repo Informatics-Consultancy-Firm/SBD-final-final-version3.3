@@ -1049,15 +1049,27 @@ function updateSummaryBadge() {
     badge.style.background = remaining > 0 ? '#dc3545' : '#28a745';
 }
 
-window.openSummaryModal = function() {
+// ── renderSummaryBody: renders the summary modal from server submissions ──
+function renderSummaryBody(serverSubmissions) {
     const modal = document.getElementById('summaryModal');
     const body  = document.getElementById('summaryModalBody');
-    if (modal) modal.classList.add('show');
-    // Always fetch from server — show loading state
-    if (body) body.innerHTML = '<div style="text-align:center;padding:40px 20px;color:#607080;"><svg viewBox="0 0 24 24" fill="none" stroke="#004080" stroke-width="2" width="36" height="36" style="animation:spin .8s linear infinite;display:block;margin:0 auto 14px;"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-4.95"/></svg><div style="font-family:Oswald,sans-serif;font-size:13px;font-weight:700;color:#004080;letter-spacing:.5px;">FETCHING LATEST DATA FROM SERVER...</div></div>';
-    window.refreshSummaryFromServer();
-    return;
-    // --- local render below is kept as fallback reference but not called ---
+
+    // Merge server data into state for duplicate checking etc
+    serverSubmissions.forEach(function(sub) {
+        const key = makeSchoolKey(sub.district, sub.chiefdom, sub.facility, sub.community, sub.school_name);
+        if (key && !isSchoolSubmitted(key)) {
+            state.submittedSchools.push({ key, district:sub.district||'', chiefdom:sub.chiefdom||'',
+                facility:sub.facility||'', community:sub.community||'', school_name:sub.school_name||'',
+                timestamp:sub.timestamp||'', data:sub });
+        }
+    });
+    saveState();
+
+    const all       = getAllAssignedSchools();
+    const total     = all.length;
+    const submitted = all.filter(s => isSchoolSubmitted(s.key));
+    const pending   = all.filter(s => !isSchoolSubmitted(s.key));
+    const pct       = total > 0 ? Math.round((submitted.length / total) * 100) : 0;
     const all   = getAllAssignedSchools();
     const total = all.length;
     const submitted = all.filter(s => isSchoolSubmitted(s.key));
@@ -1212,6 +1224,14 @@ window.openSummaryModal = function() {
       </div>`;
 
     if (modal) modal.classList.add('show');
+}
+
+window.openSummaryModal = function() {
+    const modal = document.getElementById('summaryModal');
+    const body  = document.getElementById('summaryModalBody');
+    if (modal) modal.classList.add('show');
+    if (body) body.innerHTML = '<div style="text-align:center;padding:40px 20px;color:#607080;"><svg viewBox="0 0 24 24" fill="none" stroke="#004080" stroke-width="2" width="36" height="36" style="animation:spin .8s linear infinite;display:block;margin:0 auto 14px;"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-4.95"/></svg><div style="font-family:Oswald,sans-serif;font-size:13px;font-weight:700;color:#004080;letter-spacing:.5px;">FETCHING LATEST DATA FROM SERVER...</div></div>';
+    window.refreshSummaryFromServer();
 };
 
 window.refreshSummaryFromServer = function() {
@@ -1250,9 +1270,7 @@ window.refreshSummaryFromServer = function() {
                     });
                 }
             });
-            saveState();
-            // Re-render summary
-            window.openSummaryModal();
+            renderSummaryBody(res.submissions);
             showNotification('Summary updated — ' + res.submissions.length + ' records from server.', 'success');
         } else {
             showNotification('Could not fetch data from server.', 'error');
