@@ -1070,11 +1070,6 @@ function renderSummaryBody(serverSubmissions) {
     const submitted = all.filter(s => isSchoolSubmitted(s.key));
     const pending   = all.filter(s => !isSchoolSubmitted(s.key));
     const pct       = total > 0 ? Math.round((submitted.length / total) * 100) : 0;
-    const all   = getAllAssignedSchools();
-    const total = all.length;
-    const submitted = all.filter(s => isSchoolSubmitted(s.key));
-    const pending   = all.filter(s => !isSchoolSubmitted(s.key));
-    const pct = total > 0 ? Math.round((submitted.length / total) * 100) : 0;
 
     // Build district summary ONLY from actual submissions — no CSV data
     const byDist = {};
