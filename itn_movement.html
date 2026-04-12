@@ -243,7 +243,7 @@ body{overflow-x:hidden;}
     </div>
     <div class="login-err" id="loginErr"></div>
     <div style="text-align:center;margin-top:12px;font-size:10px;color:var(--text-s);">
-      <span id="loginStatus">Loading users…</span>
+      <span id="loginStatus">Scan your SBD QR ID card</span>
     </div>
   </div>
 </div>
@@ -600,8 +600,7 @@ let driverScanner = null;
 let lastRecord   = null; // for receipt download
 
 window.addEventListener('DOMContentLoaded', async () => {
-  document.getElementById('loginStatus').textContent = 'Loading…';
-  try {
+    try {
     await loadCascadeData();
     document.getElementById('loginStatus').textContent = 'Ready — scan your SBD QR ID card';
   } catch(e) {
@@ -657,7 +656,6 @@ function populateDistrictSelect() {
 function doLogin(qrText) {
   const errEl = document.getElementById('loginErr');
   errEl.classList.remove('show');
-  if (!Object.keys(users).length) { showLoginErr('Users not loaded yet — please wait.'); return; }
   if (!qrText) { showLoginErr('No QR data received.'); return; }
 
   // Parse SBD ID QR: "Name: X\nID: Y\nRole: Z\nDistrict: W\nTel: V"
@@ -678,24 +676,17 @@ function doLogin(qrText) {
     catch(e) { parsed.id = qrText.trim(); }
   }
 
-  // Match against users CSV by staff_id, name, or username key
-  var matched = null, matchedKey = '';
-  Object.keys(users).forEach(function(uname) {
-    var u = users[uname];
-    if (u.staff_id === parsed.id || u.full_name.toLowerCase() === (parsed.name||'').toLowerCase() || uname === parsed.id) {
-      matched = u; matchedKey = uname;
-    }
-  });
+  // Use QR data directly — no CSV lookup needed
+  if (!parsed.name) { showLoginErr('Could not read name from QR. Use your SBD ID card.'); return; }
+  if (!parsed.role) { showLoginErr('Role not found in QR. Use your SBD ID card.'); return; }
 
-  if (!matched && !parsed.name) { showLoginErr('Staff not recognised. Use your SBD ID card.'); return; }
-
-  currentUser = Object.assign({}, matched || {}, {
-    username:  matchedKey || parsed.id,
-    full_name: (matched ? matched.full_name : null) || parsed.name,
-    role:      (matched ? matched.role      : null) || parsed.role,
-    district:  (matched ? matched.district  : null) || parsed.district,
-    phone:     (matched ? matched.phone     : null) || parsed.tel
-  });
+  currentUser = {
+    username:  parsed.id || parsed.name,
+    full_name: parsed.name,
+    role:      parsed.role,
+    district:  parsed.district,
+    phone:     parsed.tel
+  };
   stopLoginScanner();
   enterApp();
 }
@@ -738,16 +729,28 @@ function enterApp() {
   document.getElementById('topbarSub').textContent =
     currentUser.full_name + ' · ' + currentUser.role + ' · ' + currentUser.district;
 
-  if (currentUser.role === 'DMS Staff') {
+  var role = (currentUser.role || '').trim();
+  var isDMS = role === 'DMS Staff';
+  var isConveyor = role === 'Conveyor';
+
+  if (!isDMS && !isConveyor) {
+    // Role not recognised — show error on login screen
+    document.getElementById('scr-login').classList.add('active');
+    document.getElementById('scr-app').classList.remove('active');
+    showLoginErr('Role "' + role + '" is not allowed. Only DMS Staff or Conveyor can access this app.');
+    currentUser = null;
+    return;
+  }
+
+  if (isDMS) {
     document.getElementById('dmsTabBar').style.display='flex';
     document.getElementById('drvTabBar').style.display='none';
-    // Set district from QR and auto-cascade chiefdom + PHU
     var dist = currentUser.district || '';
     var inputEl = document.getElementById('ds-district');
     if (inputEl) inputEl.value = dist;
     if (dist) cascadeChiefdom();
     switchTab('dashboard');
-  } else if (currentUser.role === 'Conveyor') {
+  } else {
     document.getElementById('drvTabBar').style.display='flex';
     document.getElementById('dmsTabBar').style.display='none';
     renderDriverQR();
@@ -918,21 +921,11 @@ function verifyDriver(qrText) {
     form.verifiedDriver = null; return;
   }
 
-  // Match in users CSV
-  var matched = null, matchedKey = '';
-  Object.keys(users).forEach(function(uname) {
-    var u = users[uname];
-    if ((u.role === 'Conveyor') &&
-        (u.staff_id === parsed.id || u.full_name.toLowerCase() === (parsed.name||'').toLowerCase() || uname === parsed.id)) {
-      matched = u; matchedKey = uname;
-    }
-  });
-
-  var name     = (matched ? matched.full_name : parsed.name) || '';
-  var district = (matched ? matched.district  : parsed.district) || '';
-  var vehicle  = matched ? matched.vehicle : '';
-  var phone    = (matched ? matched.phone : parsed.tel) || '';
-  var username = matchedKey || parsed.id;
+  // Use QR data directly
+  var name     = parsed.name     || '';
+  var district = parsed.district || '';
+  var phone    = parsed.tel      || '';
+  var username = parsed.id       || name;
 
   if (!name) { resultEl.classList.remove('show'); notFoundEl.classList.add('show'); form.verifiedDriver=null; return; }
 
